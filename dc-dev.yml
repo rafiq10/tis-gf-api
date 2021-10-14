@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+
+  app_dev:
+    container_name: tis_gf_api_dev
+    build: .
+    ports:
+      - 8099:8085
+    restart: always   
+    volumes:
+      - .:/app_dev
+    entrypoint: ./main
