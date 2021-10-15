@@ -28,11 +28,16 @@ func main() {
 	fileUp := hu.NewFileUploader(l)
 
 	sm := mux.NewRouter()
-	sm.Handle(config.API_VERSION+"/accounting/financial-statements", hh)
-	sm.Handle(config.API_VERSION+"/reports/mgt/reports-loaded-resume", myReps)
-	sm.Handle(config.API_VERSION+"/reports/mgt/reports-aging-cli", repsAging)
-	sm.Handle(config.API_VERSION+"/reports/mgt/reports-dcc", repsDCC)
-	sm.Handle(config.API_VERSION+"/upload", fileUp).Methods("GET")
+
+	getRouter := sm.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc(config.API_VERSION+"/accounting/financial-statements", hh.GetAllFS)
+	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-loaded-resume", myReps.GetReportsLoadedResume)
+	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-aging-cli", repsAging.GetAgingCLI)
+	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-dcc", repsDCC.GetDCC)
+
+	postFormRouter := sm.Methods(http.MethodPost).Subrouter()
+	postFormRouter.HandleFunc(config.API_VERSION+"/upload", fileUp.FileUpload)
+	postFormRouter.HandleFunc(config.API_VERSION+"/accounting/financial-statements", hh.AddFinancialStatement)
 
 	s := &http.Server{
 		Addr:         ":8099",

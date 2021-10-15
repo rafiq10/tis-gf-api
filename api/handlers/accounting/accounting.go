@@ -1,13 +1,18 @@
 package handlers
 
 import (
-	"errors"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-
-	"tis-gf-api/api/accounting"
 	"tis-gf-api/models"
 	"tis-gf-api/mydb"
+	"tis-gf-api/utils"
+
+	"github.com/gorilla/mux"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type Accounting struct {
@@ -19,40 +24,72 @@ func NewAccounting(l *log.Logger) *Accounting {
 	return &Accounting{l}
 }
 
-func (acc *Accounting) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-
-	if r.Method == http.MethodGet {
-		country := r.FormValue("country")
-
-		if country == "" {
-			err = errors.New("empty country")
-		} else {
-			err = accounting.GetAllFinancialStatements(w, r)
-		}
-		//
-	}
-
-	if r.Method == http.MethodPost {
-		// fs := &models.AccountingFinancialStatement{}
-		err = accounting.AddFinancialStatement(w, r)
-
-	}
-	if r.Method == http.MethodPut {
-		// expect parameters in the URI
-
-		mydb.GetTableFields("")
-		s := models.AccountingFinancialStatement{}
-		mydb.GetTableNameByStruct(s)
-		// err = accounting.UpdateFinancialStatement(w, r)
-	}
-
+func (a *Accounting) GetAllFS(w http.ResponseWriter, r *http.Request) {
+	db, err := mydb.GetDb()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		log.Fatal(err)
 	}
+
+	fs, err := models.AccountingFinancialStatements().All(context.Background(), db)
+	if err != nil {
+		http.Error(w, "Unable to get Financial Statement", http.StatusBadRequest)
+	}
+	utils.ToJSON(w, fs)
 }
 
-func (a *Accounting) addFS(r *http.Request, w http.ResponseWriter) {
-	a.l.Println("Handle POST Financial Statemens")
+func (a *Accounting) GetFinancialStatementsByCountry(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("Endpoint hit")
+	db, err := mydb.GetDb()
+	params := mux.Vars(r)
+	myCountry := params["country"]
+
+	fModel := &models.AccountingFinancialStatement{Country: myCountry}
+	fs, err := models.FindAccountingFinancialStatement(context.Background(), db,
+		myCountry, fModel.ReportType, fModel.ReportYear, fModel.ReportMonth, fModel.AccNum)
+	utils.DieIf(err)
+
+	d, err := json.Marshal(fs)
+	utils.DieIf((err))
+	w.Write(d)
+}
+
+func (a *Accounting) AddFinancialStatement(w http.ResponseWriter, r *http.Request) {
+	var db *sql.DB
+	var fs models.AccountingFinancialStatement
+	var err error
+	var bodyString string
+
+	err = utils.FromJSON(r.Body, &fs)
+	if err != nil {
+		http.Error(w, "unable to unmarshall POST request: "+bodyString, http.StatusBadRequest)
+	}
+
+	db, err = mydb.GetDb()
+	if err != nil {
+		http.Error(w, "Error connecting to db: "+err.Error(), http.StatusBadRequest)
+	}
+	err = fs.Insert(context.Background(), db, boil.Infer())
+	if err != nil {
+		http.Error(w, "Error inserting into db: "+err.Error(), http.StatusBadRequest)
+	}
+
+}
+
+type KeyFS struct{}
+
+func (a *Accounting) MiddlewareFinancialStatementValidator(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fs := &models.AccountingFinancialStatement{}
+		err := utils.FromJSON(r.Body, fs)
+		if err != nil {
+			http.Error(w, "unable to unmarshall POST request", http.StatusBadRequest)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), KeyFS{}, fs)
+		r = r.WithContext(ctx)
+
+		next.ServeHTTP(w, r)
+	})
 }
