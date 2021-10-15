@@ -16,6 +16,7 @@ import (
 
 	// hu "tis-gf-api/api/fileupload"
 
+	gorillah "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -39,9 +40,11 @@ func main() {
 	postFormRouter.HandleFunc(config.API_VERSION+"/upload", fileUp.FileUpload)
 	postFormRouter.HandleFunc(config.API_VERSION+"/accounting/financial-statements", hh.AddFinancialStatement)
 
+	mycors := gorillah.CORS(gorillah.AllowedOrigins([]string{"localhost:3000, 10.*"}), gorillah.AllowedHeaders([]string{"*"}), gorillah.AllowedMethods([]string{"*"}))
+
 	s := &http.Server{
 		Addr:         ":8099",
-		Handler:      sm,
+		Handler:      mycors(sm),
 		IdleTimeout:  120 * time.Second,
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
