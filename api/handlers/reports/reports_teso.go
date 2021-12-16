@@ -5,11 +5,17 @@ import (
 	"net/http"
 
 	"tis-gf-api/mydb"
+	"tis-gf-api/utils"
 )
 
 type Reports struct {
 	l *log.Logger
 	// afs *models.AccountingFinancialStatement
+}
+
+type errMsg struct {
+	errKey string
+	errTxt string
 }
 
 type ReportsAging struct {
@@ -18,7 +24,12 @@ type ReportsAging struct {
 }
 
 type ReportsDCC struct {
-	l *log.Logger
+	l           *log.Logger
+	country     string
+	reportYear  string
+	reportMonth string
+	pdcYear     string
+	pdcMonth    string
 	// afs *models.AccountingFinancialStatement
 }
 
@@ -29,8 +40,8 @@ func NewReportsAgingCLI(l *log.Logger) *ReportsAging {
 	return &ReportsAging{l}
 }
 
-func NewReportsDCC(l *log.Logger) *ReportsDCC {
-	return &ReportsDCC{l}
+func NewReportsDCC(l *log.Logger, ctry, rYear, rMonth, pdcYear, pdcMonth string) *ReportsDCC {
+	return &ReportsDCC{l, ctry, rYear, rMonth, pdcYear, pdcMonth}
 }
 
 func (acc *Reports) GetReportsLoadedResume(w http.ResponseWriter, r *http.Request) {
@@ -58,12 +69,42 @@ func (rep *ReportsAging) GetAgingCLI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (rep *ReportsDCC) GetDCC(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "application/json")
+
+	var errMsg []utils.ErrMsg
+
+	if r.FormValue("country") == "" {
+		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: "Empty field: country"})
+	}
+	if r.FormValue("pdcyear") == "" {
+		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: "Empty field: pdcyear"})
+	}
+	if r.FormValue("pdcmonth") == "" {
+		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: "Empty field: pdcmonth"})
+	}
+	if r.FormValue("reportyear") == "" {
+		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: "Empty field: reportyear"})
+	}
+	if r.FormValue("reportmonth") == "" {
+		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: "Empty field: reportmonth"})
+	}
+
+	if len(errMsg) != 0 {
+		// rep.l.Println("len(errMsg) != 0" + fmt.Sprintf("%v", errMsg))
+		utils.RespondWithError(w, http.StatusBadRequest, errMsg)
+		return
+	}
 	country := r.FormValue("country")
 	pdcYear := r.FormValue("pdcyear")
 	pdcMonth := r.FormValue("pdcmonth")
 	reportYear := r.FormValue("reportyear")
 	reportMonth := r.FormValue("reportmonth")
 
+	rep.country = country
+	rep.pdcYear = pdcYear
+	rep.pdcMonth = pdcMonth
+	rep.reportYear = reportYear
+	rep.reportMonth = reportMonth
 	mysql := "select * from [TESO_get_DCC]('" + country + "'," + reportYear + "," + reportMonth + "," + pdcYear + "," + pdcMonth + ")"
 	err := mydb.ExecuteSQL(mysql, w)
 	if err != nil {
@@ -71,37 +112,3 @@ func (rep *ReportsDCC) GetDCC(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
-
-// func (acc *Reports) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-// 	var err error
-// 	if r.Method == http.MethodGet {
-// 		err = reports.GetReportsLoadedResume(w, r)
-// 	}
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
-// }
-// func (rep *ReportsAging) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-// 	var err error
-// 	if r.Method == http.MethodGet {
-// 		err = reports.GetAgingCLI(w, r)
-// 	}
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
-// }
-
-// func (rep *ReportsDCC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-// 	var err error
-// 	if r.Method == http.MethodGet {
-// 		err = reports.GetDCC(w, r)
-// 	}
-
-// 	if err != nil {
-// 		http.Error(w, err.Error(), http.StatusBadRequest)
-// 		// http.Error(w, err.Error(), http.StatusBadRequest)
-// 		return
-// 	}
-// }

@@ -7,6 +7,8 @@ import (
 	"tis-gf-api/secrets"
 )
 
+type MockDB struct{}
+
 func TestGetDb(t *testing.T) {
 	t.Run("testing db connection", func(t *testing.T) {
 		db, err := sql.Open("mssql", secrets.SQL_CONN_STR)

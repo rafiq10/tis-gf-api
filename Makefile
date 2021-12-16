@@ -2,6 +2,7 @@ build: bin/main
 run: bin/main
 dev: run-dev
 test: lint unit-test
+gotest: go-test
 
 
 PLATFORM=local
@@ -9,7 +10,7 @@ PLATFORM=local
 .PHONY: bin/main
 bin/main:
 	@DOCKER_BUILDKIT=1 docker build . --target bin \
-	--output bin/ \
+	--output bin/tis-gf-api \
 	--platform ${PLATFORM} \
 
 .PHONY: run
@@ -33,3 +34,7 @@ unit-test-coverage:
 .PHONY: lint
 lint:
 	@docker buildx build . --target lint
+
+.PHONY: go-test 
+go-test: 
+	go test $$(go list ./... | grep -v ./api/config | grep -v ./models | grep -v ./secrets) -coverprofile .testCoverage.txt

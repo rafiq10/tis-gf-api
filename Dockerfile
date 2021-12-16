@@ -21,7 +21,7 @@ FROM base AS unit-test
 RUN --mount=target=. \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    mkdir /test && go test -v -coverprofile=/test/cover.out ./...
+    mkdir /test && go test $(go list ./... | grep -v ./models | grep -v ./secrets) -coverprofile .testCoverage.txt
 
 FROM golangci/golangci-lint:v1.38.0-alpine AS lint-base
 

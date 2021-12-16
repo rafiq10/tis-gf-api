@@ -1,1 +1,4 @@
 bin/*
+.testCoverage.txt
+testCoverage.txt
+%USERPROFILE%ports.txt

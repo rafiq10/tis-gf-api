@@ -11,7 +11,6 @@ import (
 	"tis-gf-api/api/config"
 	ha "tis-gf-api/api/handlers/accounting"
 
-	hu "tis-gf-api/api/handlers/fileupload"
 	hr "tis-gf-api/api/handlers/reports"
 
 	// hu "tis-gf-api/api/fileupload"
@@ -25,8 +24,7 @@ func main() {
 	hh := ha.NewAccounting(l)
 	myReps := hr.NewReports(l)
 	repsAging := hr.NewReportsAgingCLI(l)
-	repsDCC := hr.NewReportsDCC(l)
-	fileUp := hu.NewFileUploader(l)
+	repsDCC := hr.NewReportsDCC(l, "", "", "", "", "")
 
 	sm := mux.NewRouter()
 
@@ -37,7 +35,6 @@ func main() {
 	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-dcc", repsDCC.GetDCC)
 
 	postFormRouter := sm.Methods(http.MethodPost).Subrouter()
-	postFormRouter.HandleFunc(config.API_VERSION+"/upload", fileUp.FileUpload)
 	postFormRouter.HandleFunc(config.API_VERSION+"/accounting/financial-statements", hh.AddFinancialStatement)
 
 	mycors := gorillah.CORS(gorillah.AllowedOrigins([]string{"localhost:3000, 10.*"}), gorillah.AllowedHeaders([]string{"*"}), gorillah.AllowedMethods([]string{"*"}))
