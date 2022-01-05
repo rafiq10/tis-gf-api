@@ -139,6 +139,9 @@ func AssertResponseHeader(t *testing.T, response *httptest.ResponseRecorder, hea
 func AssertResponseText(t *testing.T, got string, want string) {
 	t.Helper()
 	if got != want {
+		if len(got) > 300 {
+			got = got[:300]
+		}
 		t.Errorf("got response: %s but wanted: %s", got, want)
 	}
 }

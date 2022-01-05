@@ -10,10 +10,8 @@ import (
 
 	"tis-gf-api/api/config"
 	ha "tis-gf-api/api/handlers/accounting"
-
 	hr "tis-gf-api/api/handlers/reports"
-
-	// hu "tis-gf-api/api/fileupload"
+	"tis-gf-api/mydb"
 
 	gorillah "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -21,17 +19,20 @@ import (
 
 func main() {
 	l := log.New(os.Stdout, "tis-gf-api", log.LstdFlags)
-	hh := ha.NewAccounting(l)
+	db, err := mydb.GetDb()
+	if err != nil {
+		l.Fatal(err)
+	}
+
+	hh := ha.NewAccounting(l, db)
 	myReps := hr.NewReports(l)
-	repsAging := hr.NewReportsAgingCLI(l)
-	repsDCC := hr.NewReportsDCC(l, "", "", "", "", "")
+	repsDCC := hr.NewReportsDCC(l)
 
 	sm := mux.NewRouter()
 
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
 	getRouter.HandleFunc(config.API_VERSION+"/accounting/financial-statements", hh.GetAllFS)
 	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-loaded-resume", myReps.GetReportsLoadedResume)
-	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-aging-cli", repsAging.GetAgingCLI)
 	getRouter.HandleFunc(config.API_VERSION+"/reports/mgt/reports-dcc", repsDCC.GetDCC)
 
 	postFormRouter := sm.Methods(http.MethodPost).Subrouter()
@@ -40,7 +41,7 @@ func main() {
 	mycors := gorillah.CORS(gorillah.AllowedOrigins([]string{"localhost:3000, 10.*"}), gorillah.AllowedHeaders([]string{"*"}), gorillah.AllowedMethods([]string{"*"}))
 
 	s := &http.Server{
-		Addr:         ":8099",
+		Addr:         ":8085",
 		Handler:      mycors(sm),
 		IdleTimeout:  120 * time.Second,
 		ReadTimeout:  60 * time.Second,

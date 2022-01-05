@@ -2,17 +2,18 @@ package mydb
 
 import (
 	"database/sql"
-	"fmt"
+	"errors"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"reflect"
-	"strings"
+	"os"
+
+	"tis-gf-api/models"
+	"tis-gf-api/utils"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	"github.com/iancoleman/orderedmap"
 	_ "github.com/iancoleman/orderedmap"
-	"tis-gf-api/models"
-	"tis-gf-api/utils"
 
 	"tis-gf-api/secrets"
 )
@@ -87,14 +88,10 @@ func init() {
 	tableTypes["TblYear"] = &models.TblYear{}
 	tableTypes["TempTblAging"] = &models.TempTblAging{}
 
-	// tableColumns["AccountingCMBFinStatementType"] = models.AccountingCMBFinStatementTypeColumns
-	// tableColumns["AccountingFinancialStatement"] = models.AccountingFinancialStatementColumns
+}
 
-	// fmt.Println(tableTypes)
-	// fmt.Println(tableColumns)
-	// f := GetTableFields(tableTypes["AccountingFinancialStatement"])
-	// fmt.Println(f)
-
+type DB interface {
+	ExecuteSQL(queryStr string, w http.ResponseWriter) error
 }
 
 func GetDb() (db *sql.DB, err error) {
@@ -102,41 +99,54 @@ func GetDb() (db *sql.DB, err error) {
 	return
 }
 
-func GetTableNameByStruct(myStruct interface{}) string {
-	fullName := reflect.TypeOf(myStruct).String()
-	tblName := strings.ReplaceAll(fullName, "*models.", "")
-	return tblName
+func GetTestDb() (db *sql.DB, err error) {
+	db, err = sql.Open("mssql", secrets.SQL_TEST_CONN_STR)
+	return
 }
 
-func ExistsTable(tblName string) bool {
-	_, ok := tableTypes[tblName]
-	return ok
+// func GetTableNameByStruct(myStruct interface{}) string {
+// 	fullName := reflect.TypeOf(myStruct).String()
+// 	tblName := strings.ReplaceAll(fullName, "*models.", "")
+// 	return tblName
+// }
 
-}
-func GetTableFields(myStruct interface{}) []string {
-	tblName := GetTableNameByStruct(myStruct)
-	tp := tableColumns[tblName]
+// func ExistsTable(tblName string) bool {
+// 	_, ok := tableTypes[tblName]
+// 	return ok
 
-	fmt.Println("tp field 1 name:")
+// }
+// func GetTableFields(myStruct interface{}) []string {
+// 	tblName := GetTableNameByStruct(myStruct)
+// 	tp := tableColumns[tblName]
 
-	// tp := models.AccountingFinancialStatementColumns
-	tpReflected := reflect.ValueOf(&tp).Elem().Type()
-	// fmt.Printf(tpReflected.Name())
+// 	fmt.Println("tp field 1 name:")
 
-	numOfFields := tpReflected.NumField()
+// 	// tp := models.AccountingFinancialStatementColumns
+// 	tpReflected := reflect.ValueOf(&tp).Elem().Type()
+// 	// fmt.Printf(tpReflected.Name())
 
-	fieldNames := make([]string, numOfFields)
-	for i := 0; i < numOfFields; i++ {
-		fieldNames[i] = tpReflected.Field(i).Name
-	}
+// 	numOfFields := tpReflected.NumField()
 
-	// fmt.Println(fieldNames)
-	return fieldNames
+// 	fieldNames := make([]string, numOfFields)
+// 	for i := 0; i < numOfFields; i++ {
+// 		fieldNames[i] = tpReflected.Field(i).Name
+// 	}
 
-}
+// 	// fmt.Println(fieldNames)
+// 	return fieldNames
+
+// }
 
 func ExecuteSQL(queryStr string, w http.ResponseWriter) error {
-	conn, err := GetDb()
+	var conn *sql.DB
+	var err error
+	isTesting := os.Getenv("TESTING")
+	if isTesting == "TRUE" {
+		conn, err = GetTestDb()
+	} else {
+		conn, err = GetDb()
+	}
+
 	if err != nil {
 		log.Fatal("Error while opening database connection:", err.Error())
 	}
@@ -144,6 +154,7 @@ func ExecuteSQL(queryStr string, w http.ResponseWriter) error {
 
 	rows, err := conn.Query(queryStr)
 	if err != nil {
+		// log.Fatal("query: " + queryStr)
 		log.Fatal("Query failed:", err.Error())
 	}
 	defer rows.Close()
@@ -173,4 +184,28 @@ func ExecuteSQL(queryStr string, w http.ResponseWriter) error {
 	}
 	r := utils.ToJSON(w, v)
 	return r
+}
+
+func ExecSqlFromFile(fullPath string) (err error) {
+
+	c, ioErr := ioutil.ReadFile(fullPath)
+	if ioErr != nil {
+		// log.Fatalf("Error: %v", ioErr.Error())
+		return errors.New("ExecSqlFromFile --> ioutil.ReadFile(fullPath): " + ioErr.Error())
+	}
+	sql := string(c)
+
+	conn, err := GetTestDb()
+	if err != nil {
+		// log.Fatal("Error while opening database connection:", err.Error())
+		return errors.New("ExecSqlFromFile --> mydb.GetTestDb(): " + err.Error())
+	}
+	defer conn.Close()
+	_, err = conn.Exec(sql)
+
+	if err != nil {
+		// log.Fatalf("Error en ejecutar la consulta: %v", err.Error())
+		return errors.New("ExecSqlFromFile --> conn.Exec(sql) " + err.Error())
+	}
+	return nil
 }

@@ -1,4 +1,5 @@
 build: bin/main
+deploy: stopsrv rmoldexe copyexe startsrv
 run: bin/main
 dev: run-dev
 test: lint unit-test
@@ -12,6 +13,26 @@ bin/main:
 	@DOCKER_BUILDKIT=1 docker build . --target bin \
 	--output bin/tis-gf-api \
 	--platform ${PLATFORM} \
+
+.PHONY: copyexe
+copyexe:
+	@cp ./bin/tis-gf-api/main /home/bilrafal/Documents/prod/tis-gf-api
+
+.PHONY: rmoldexe
+rmoldexe:
+	@rm /home/bilrafal/Documents/prod/tis-gf-api
+
+.PHONY: stopsrv
+stopsrv:
+	@sudo systemctl stop tis-gf-api.service
+
+.PHONY: reloadsrv
+reloadsrv:
+	@sudo systemctl daemon-reload
+
+.PHONY: startsrv
+startsrv:
+	@sudo systemctl start tis-gf-api.service
 
 .PHONY: run
 run:

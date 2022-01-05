@@ -10,25 +10,26 @@ import (
 	"net/http"
 
 	"tis-gf-api/models"
-	"tis-gf-api/mydb"
 	"tis-gf-api/utils"
 
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type Accounting struct {
-	l *log.Logger
+	l     *log.Logger
+	store *sql.DB
 }
 
-func NewAccounting(l *log.Logger) *Accounting {
-	return &Accounting{l}
+func NewAccounting(l *log.Logger, db *sql.DB) *Accounting {
+	return &Accounting{l, db}
 }
 
 func (a *Accounting) GetAllFS(w http.ResponseWriter, r *http.Request) {
-	db, err := mydb.GetDb()
-	if err != nil {
-		log.Fatal(err)
-	}
+	db := a.store
+	// db, err := mydb.GetDb()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	if r.FormValue("country") == "" {
 		getAllFinancialStatements(w, r, db)
@@ -52,6 +53,9 @@ func getFinancialStatementsByCountry(w http.ResponseWriter, r *http.Request, db 
 	country := r.FormValue(models.AccountingFinancialStatementColumns.Country)
 
 	exists, err := models.TblCountriesEspExists(context.Background(), db, country)
+	if err != nil {
+		http.Error(w, "Unable to check if country exists: "+err.Error(), http.StatusBadRequest)
+	}
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
 		utils.ToJSON(w, nil)
@@ -110,7 +114,7 @@ func (a *Accounting) AddFinancialStatement(w http.ResponseWriter, r *http.Reques
 	}
 	defer r.Body.Close()
 
-	db, err = mydb.GetDb()
+	db = a.store
 
 	err = fs.Insert(context.Background(), db, boil.Infer())
 	if err != nil {
@@ -129,7 +133,7 @@ func (a *Accounting) DeleteFs(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer r.Body.Close()
 
-	db, err = mydb.GetDb()
+	db = a.store
 	if err != nil {
 		var errMsg []utils.ErrMsg
 		errMsg = append(errMsg, utils.ErrMsg{ErrTxt: err.Error()})
@@ -137,6 +141,9 @@ func (a *Accounting) DeleteFs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = utils.FromJSON(r.Body, &fs)
+	if err != nil {
+		http.Error(w, "Unable to get from JSON: "+err.Error(), http.StatusBadRequest)
+	}
 	fs.Delete(context.Background(), db)
 	utils.RespondWithJSON(w, http.StatusNotFound, map[string]string{"result": "success"})
 }
